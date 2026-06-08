@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 import importlib.metadata
+import json
+import subprocess
 
 
 class ModelAdapter:
@@ -43,3 +45,25 @@ class ModelAdapter:
                 continue
         return versions
 
+    def run_external_json(self, batch: list[Any]) -> list[dict[str, Any]]:
+        command = self.config.get("external_command")
+        if not command:
+            raise ValueError("backend=external requires model.external_command")
+        payload = {
+            "batch": batch,
+            "input_size": list(self.input_size),
+            "batch_size": self.batch_size,
+            "model": self.config,
+        }
+        completed = subprocess.run(
+            command,
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=float(self.config.get("timeout_s", 300)),
+        )
+        output = json.loads(completed.stdout)
+        if not isinstance(output, list):
+            raise ValueError("external model command must print a JSON list of predictions")
+        return output

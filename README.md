@@ -114,10 +114,20 @@ Implemented:
 
 Contract placeholders:
 
-- `sam` / `sam2`: segmentation benchmark shape.
-- `vlm`: prompt-based VLM benchmark shape.
+- `sam` / `sam2`: segmentation benchmark shape, with `backend: external` for deployment scripts.
+- `vlm`: prompt-based VLM benchmark shape, with `backend: external` for deployment scripts.
 
-The placeholders intentionally fail with a clear message until a concrete backend such as TensorRT, ONNX Runtime, RKNN, MNN, Core ML, MLX, ExecuTorch, llama.cpp, or a vendor SDK is wired in.
+For `backend: external`, the adapter sends a JSON payload to the configured command over stdin and expects a JSON list of predictions on stdout. This gives a stable contract for TensorRT, ONNX Runtime, RKNN, MNN, Core ML, MLX, ExecuTorch, llama.cpp, Android NNAPI, or vendor SDK scripts without changing the benchmark protocol.
+
+```yaml
+model:
+  type: vlm
+  name: qwen2.5-vl-edge
+  task: vlm
+  backend: external
+  external_command: ["python", "deploy/run_vlm.py"]
+  prompt: "Describe safety-relevant objects in the image."
+```
 
 ## Dataset Evaluation
 
@@ -160,4 +170,3 @@ python bench.py run --config examples/demo_config.yaml --output runs/dev --demo
 - Add external power-meter ingestion for reproducible Joules-per-inference.
 - Add signed leaderboard submissions and schema validation.
 - Add Android APK harness for NNAPI/GPU/NPU backend runs.
-
