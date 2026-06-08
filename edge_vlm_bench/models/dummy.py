@@ -36,3 +36,37 @@ class DummyAdapter(ModelAdapter):
         time.sleep(float(self.config.get("postprocess_sleep_s", 0.001)))
         return raw
 
+
+class TorchDummyAdapter(DummyAdapter):
+    family = "torch_dummy"
+
+    def load(self) -> None:
+        import torch
+
+        self.torch = torch
+        self.device = torch.device(self.config.get("device", "cuda:0"))
+        if self.device.type == "cuda":
+            torch.cuda.set_device(self.device)
+        size = int(self.config.get("matrix_size", 1024))
+        self.weights = torch.randn(size, size, device=self.device)
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+
+    def infer(self, prepared: list[Any]) -> list[dict[str, Any]]:
+        size = self.weights.shape[0]
+        x = self.torch.randn(size, size, device=self.device)
+        y = x @ self.weights
+        if self.device.type == "cuda":
+            self.torch.cuda.synchronize(self.device)
+        predictions = super().infer(prepared)
+        for prediction in predictions:
+            prediction["backend_device"] = str(self.device)
+            prediction["compute_checksum"] = float(y[0, 0].detach().cpu())
+        return predictions
+
+    def describe(self) -> dict[str, Any]:
+        data = super().describe()
+        data["torch_device"] = str(getattr(self, "device", self.config.get("device", "unknown")))
+        if hasattr(self, "torch") and self.device.type == "cuda":
+            data["torch_cuda_name"] = self.torch.cuda.get_device_name(self.device)
+        return data

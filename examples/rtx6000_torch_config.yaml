@@ -1,0 +1,29 @@
+device:
+  type: generic
+  name: rtx6000-local
+  cuda_index: 1
+  thermal_policy: record_only
+  power_source: nvidia-smi
+
+model:
+  type: torch_dummy
+  name: torch-matmul-rtx6000
+  task: detect
+  backend: torch
+  version: 0.1.0
+  device: cuda:1
+  matrix_size: 2048
+
+dataset:
+  type: coco
+
+protocol:
+  batch_size: 1
+  input_size: [640, 640]
+  warmup_runs: 5
+  measured_runs: 20
+  include_prepost: true
+
+metrics:
+  accuracy: coco_proxy
+  energy: nvidia_smi_power_snapshot

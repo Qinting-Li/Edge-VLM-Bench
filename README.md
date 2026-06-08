@@ -110,6 +110,7 @@ Production power/energy runs should use a consistent source per leaderboard trac
 Implemented:
 
 - `dummy`: deterministic CI/demo backend.
+- `torch_dummy`: real PyTorch CUDA matmul backend for validating device selection, VRAM reporting, and end-to-end benchmark plumbing without downloading model weights.
 - `yolo`: Ultralytics YOLO adapter.
 
 Contract placeholders:
@@ -128,6 +129,16 @@ model:
   external_command: ["python", "deploy/run_vlm.py"]
   prompt: "Describe safety-relevant objects in the image."
 ```
+
+## RTX 6000 Smoke Validation
+
+Use the included RTX 6000 config when the external GPU is CUDA device 1:
+
+```bash
+python bench.py run --config examples/rtx6000_torch_config.yaml --output runs/rtx6000 --demo
+```
+
+The report should show `torch_cuda_name: Quadro RTX 6000` under model metadata and `nvidia_gpu.name: Quadro RTX 6000` under device metadata.
 
 ## Dataset Evaluation
 
