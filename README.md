@@ -1,37 +1,37 @@
 # Edge-VLM-Bench
 
-Edge-VLM-Bench is a Python + CLI + Docker benchmark framework for answering the edge deployment question that cloud GPU papers often leave open: can YOLO, SAM/SAM2, and VLM models run on real devices, how fast, how much energy do they use, and how much accuracy is lost after deployment?
+Edge-VLM-Bench is a Python, CLI, and Docker-based benchmark framework for testing whether YOLO, SAM/SAM2, and VLM models are actually deployable on edge devices.
 
-The project is organized around five layers:
+It focuses on the questions that cloud GPU benchmarks often miss:
 
-- Device adapters: Jetson, RK3588, macOS, Android, and generic local runs.
-- Model adapters: YOLO, SAM/SAM2, VLM, plus a deterministic dummy backend for CI and demos.
-- Dataset evaluation: COCO-style annotations and custom JSON manifests.
-- Metric collection: FPS, P50/P95 latency, RAM/VRAM, energy, mAP/IoU, thermal and throttling metadata.
-- Reports and leaderboard inputs: JSON, CSV, and Markdown with config and result SHA256 hashes.
+* Can the model run on real devices such as Jetson, RK3588, macOS, or Android?
+* What is the true end-to-end latency, including preprocessing and postprocessing?
+* How much RAM, VRAM, power, and energy does it use?
+* How much accuracy is lost after quantization, backend conversion, or edge runtime deployment?
+* Which backend gives the best tradeoff for a fixed device, input size, batch size, and thermal policy?
 
-## Why This Exists
+## What It Measures
 
-Many 2026 VLM, SAM, and YOLO papers report cloud GPU metrics but do not answer the engineering questions that determine deployment value:
+Each benchmark run records:
 
-- Does the model run on Jetson, RK3588, macOS, or Android?
-- How fast is end-to-end inference when preprocessing and postprocessing are included?
-- How much RAM, VRAM, power, and energy does it consume?
-- How much mAP or IoU is lost after quantization, backend conversion, or edge runtime deployment?
-- Which backend is the best tradeoff for a fixed device, input resolution, batch size, and thermal policy?
+* Cold-start latency, warmup runs, and measured inference runs.
+* FPS, P50/P95 latency, RAM, VRAM, power, and energy.
+* mAP or IoU, depending on the task.
+* Device metadata, thermal policy, throttling notes, and energy source.
+* Model type, weights, backend, version, and backend package versions.
+* Dataset configuration, metric method, per-sample results, and SHA256 hashes.
 
-## Benchmark Protocol
+Each run produces reproducible, tamper-evident outputs. `result.json` contains canonical `config_sha256` and `result_sha256` values, and the same result hash is also written into `summary.csv` and `report.md`.
 
-Every run records:
+## Project Structure
 
-- Cold start latency separately from warmup and measured runs.
-- Fixed batch size and fixed input resolution.
-- Whether preprocessing and postprocessing are included in measured latency.
-- Device adapter, thermal policy, throttling notes, RAM/VRAM, and energy source.
-- Model family, weights path, model version, backend, and installed backend package versions.
-- Dataset configuration, metric method, config hash, result hash, and full per-sample measurements.
+Edge-VLM-Bench is organized around five layers:
 
-Result files are designed to be reproducible and tamper-evident. `result.json` contains a canonical `config_sha256` and `result_sha256`; `summary.csv` and `report.md` carry the same result hash for leaderboard ingestion.
+* **Device adapters**: Jetson, RK3588, macOS, Android, and generic local runs.
+* **Model adapters**: YOLO, SAM/SAM2, VLM, dummy, and torch_dummy.
+* **Dataset evaluation**: COCO-style annotations and custom JSON manifests.
+* **Metric collection**: latency, FPS, memory, energy, accuracy, thermal state, and throttling metadata.
+* **Reports**: JSON, CSV, and Markdown outputs for analysis and leaderboard ingestion.
 
 ## Quick Start
 
@@ -40,19 +40,13 @@ python -m pip install -e ".[dev]"
 python bench.py run --config examples/demo_config.yaml --output runs/demo --demo
 ```
 
-The demo uses the deterministic dummy adapter, so it validates the benchmark protocol without requiring model weights or device SDKs.
+The demo uses the deterministic `dummy` adapter, so it can validate the benchmark pipeline without model weights, device SDKs, or edge hardware.
 
-## CLI
+You can also use the CLI directly:
 
 ```bash
 edge-vlm-bench run --config examples/demo_config.yaml --output runs/demo --demo
 edge-vlm-bench report --result runs/demo/result.json
-```
-
-The top-level `bench.py` provides the same entry point:
-
-```bash
-python bench.py run --config examples/demo_config.yaml --output runs/demo --demo
 ```
 
 ## Docker
@@ -62,9 +56,9 @@ docker build -t edge-vlm-bench .
 docker run --rm -v "$PWD/runs:/app/runs" edge-vlm-bench
 ```
 
-For Jetson, RK3588, and Android production runs, mount model weights, datasets, device telemetry files, and SDK runtime libraries into the container as required by the selected backend.
+For production runs on Jetson, RK3588, or Android, mount the required model weights, datasets, telemetry files, SDK libraries, and runtime dependencies into the container.
 
-## Configuration
+## Example Configuration
 
 ```yaml
 device:
@@ -95,30 +89,32 @@ protocol:
 
 ## Device Adapters
 
-Current adapters expose a common contract and record the available metadata:
+Current device adapters provide a common metadata and telemetry interface:
 
-- `generic`: local CPU process RAM and platform metadata.
-- `jetson`: `tegrastats`, `nvpmodel`, RAM, and thermal snapshot hooks.
-- `rk3588`: RKNPU load hook and SoC metadata.
-- `macos`: Apple platform metadata and `powermetrics` guidance.
-- `android`: ADB device properties and battery telemetry hook.
+* `generic`: local CPU process RAM and platform metadata.
+* `jetson`: `tegrastats`, `nvpmodel`, RAM, and thermal snapshots.
+* `rk3588`: RKNPU load hook and SoC metadata.
+* `macos`: Apple platform metadata and `powermetrics` guidance.
+* `android`: ADB device properties and battery telemetry.
 
-Production power/energy runs should use a consistent source per leaderboard track, such as on-device telemetry for exploratory runs and an external power meter for final published numbers.
+For leaderboard-quality energy results, use a consistent measurement source within each track. On-device telemetry is useful for development; external power meters are preferred for final published numbers.
 
 ## Model Adapters
 
-Implemented:
+Implemented adapters:
 
-- `dummy`: deterministic CI/demo backend.
-- `torch_dummy`: real PyTorch CUDA matmul backend for validating device selection, VRAM reporting, and end-to-end benchmark plumbing without downloading model weights.
-- `yolo`: Ultralytics YOLO adapter.
+* `dummy`: deterministic backend for CI and demos.
+* `torch_dummy`: PyTorch CUDA matmul backend for validating device selection, VRAM reporting, and benchmark plumbing without downloading model weights.
+* `yolo`: Ultralytics YOLO adapter.
 
-Contract placeholders:
+Planned or external adapters:
 
-- `sam` / `sam2`: segmentation benchmark shape, with `backend: external` for deployment scripts.
-- `vlm`: prompt-based VLM benchmark shape, with `backend: external` for deployment scripts.
+* `sam` / `sam2`: segmentation benchmark interface.
+* `vlm`: prompt-based VLM benchmark interface.
 
-For `backend: external`, the adapter sends a JSON payload to the configured command over stdin and expects a JSON list of predictions on stdout. This gives a stable contract for TensorRT, ONNX Runtime, RKNN, MNN, Core ML, MLX, ExecuTorch, llama.cpp, Android NNAPI, or vendor SDK scripts without changing the benchmark protocol.
+For deployment-specific backends, use `backend: external`. The benchmark sends a JSON payload to the configured command through stdin and expects a JSON list of predictions from stdout.
+
+This keeps the benchmark protocol stable while allowing integration with TensorRT, ONNX Runtime, RKNN, MNN, Core ML, MLX, ExecuTorch, llama.cpp, Android NNAPI, and vendor SDK scripts.
 
 ```yaml
 model:
@@ -130,21 +126,32 @@ model:
   prompt: "Describe safety-relevant objects in the image."
 ```
 
-## RTX 6000 Smoke Validation
+## RTX 6000 Smoke Test
 
-Use the included RTX 6000 config when the external GPU is CUDA device 1:
+Use the included RTX 6000 config when the target CUDA device is device 1:
 
 ```bash
 python bench.py run --config examples/rtx6000_torch_config.yaml --output runs/rtx6000 --demo
 ```
 
-The report should show `torch_cuda_name: Quadro RTX 6000` under model metadata and `nvidia_gpu.name: Quadro RTX 6000` under device metadata.
+A successful report should include:
+
+* `torch_cuda_name: Quadro RTX 6000` in model metadata.
+* `nvidia_gpu.name: Quadro RTX 6000` in device metadata.
 
 ## Dataset Evaluation
 
-COCO evaluation supports JSON annotation loading and a lightweight mAP proxy for smoke tests. For publication-grade COCO metrics, install `.[coco]` and extend `edge_vlm_bench/metrics/accuracy.py` to call `pycocotools` with the same prediction JSON produced by the model adapter.
+COCO-style datasets are supported through JSON annotation files. For smoke tests, Edge-VLM-Bench provides a lightweight mAP proxy.
 
-Custom datasets use a JSON manifest:
+For publication-grade COCO evaluation, install:
+
+```bash
+python -m pip install -e ".[coco]"
+```
+
+Then extend `edge_vlm_bench/metrics/accuracy.py` to call `pycocotools` using the prediction JSON produced by the model adapter.
+
+Custom datasets can use a simple JSON manifest:
 
 ```json
 [
@@ -157,13 +164,13 @@ Custom datasets use a JSON manifest:
 ]
 ```
 
-## Output
+## Outputs
 
-Each run writes:
+Each run writes three files:
 
-- `result.json`: full protocol, metadata, per-sample measurements, hashes.
-- `summary.csv`: one-row leaderboard-friendly summary.
-- `report.md`: human-readable report.
+* `result.json`: full protocol, metadata, per-sample measurements, and hashes.
+* `summary.csv`: one-row summary for leaderboard ingestion.
+* `report.md`: human-readable benchmark report.
 
 ## Development
 
@@ -176,8 +183,9 @@ python bench.py run --config examples/demo_config.yaml --output runs/dev --demo
 
 ## Roadmap
 
-- Add production `pycocotools` COCO mAP and SAM mask IoU evaluators.
-- Add TensorRT, ONNX Runtime, RKNN, MNN, Core ML, MLX, ExecuTorch, and llama.cpp adapters.
-- Add external power-meter ingestion for reproducible Joules-per-inference.
-- Add signed leaderboard submissions and schema validation.
-- Add Android APK harness for NNAPI/GPU/NPU backend runs.
+* Add production COCO mAP through `pycocotools`.
+* Add SAM/SAM2 mask IoU evaluation.
+* Add TensorRT, ONNX Runtime, RKNN, MNN, Core ML, MLX, ExecuTorch, and llama.cpp adapters.
+* Add external power-meter ingestion for reproducible joules-per-inference.
+* Add signed leaderboard submissions and schema validation.
+* Add Android APK harness for NNAPI, GPU, and NPU runs.
