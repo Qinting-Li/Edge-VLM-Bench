@@ -1,0 +1,9 @@
+[
+  {
+    "image_id": 1,
+    "path": "images/example_001.jpg",
+    "category_id": 1,
+    "bbox": [10, 10, 100, 100]
+  }
+]
+

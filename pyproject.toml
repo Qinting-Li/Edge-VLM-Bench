@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edge-vlm-bench"
+version = "0.1.0"
+description = "Reproducible edge-device benchmarks for YOLO, SAM/SAM2, and VLM models."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Qinting Li" }]
+license = { text = "MIT" }
+dependencies = [
+  "psutil>=5.9",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+coco = ["pycocotools>=2.0.7"]
+onnx = ["onnxruntime>=1.17"]
+torch = ["torch>=2.1", "torchvision>=0.16"]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+
+[project.scripts]
+edge-vlm-bench = "edge_vlm_bench.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["edge_vlm_bench*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
